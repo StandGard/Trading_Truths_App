@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, TrendingUp, BarChart3, Heart, Droplet, Utensils, Moon, Brain, Newspaper, Target } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, TrendingUp, BarChart3, Heart, Droplet, Utensils, Moon, Brain, Newspaper, Target, Loader2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths } from "date-fns";
+import { useCalendarData, useSaveCalendarData, useApiStatus } from "@/hooks/useApi";
+import { toast } from "sonner";
 
 interface DayEntry {
   date: string;
@@ -40,12 +42,23 @@ interface DayEntry {
 const Calendar2025 = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [dayEntries, setDayEntries] = useState<Record<string, DayEntry>>(() => {
-    const saved = localStorage.getItem('trading-calendar-entries');
-    return saved ? JSON.parse(saved) : {};
-  });
   const [viewType, setViewType] = useState<"calendar" | "table">("calendar");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Use API hooks for data management
+  const { data: calendarData, isLoading, error } = useCalendarData();
+  const { mutate: saveCalendarData, isPending: isSaving } = useSaveCalendarData();
+  const { isOnline } = useApiStatus();
+  
+  // Local state for calendar entries
+  const [dayEntries, setDayEntries] = useState<Record<string, DayEntry>>({});
+
+  // Sync API data with local state
+  useEffect(() => {
+    if (calendarData) {
+      setDayEntries(calendarData);
+    }
+  }, [calendarData]);
 
   const emotionalStates = ["Calm", "Focused", "Fearful", "Overconfident", "FOMO", "Hesitant", "Anxious", "Confident"];
 
@@ -84,10 +97,22 @@ const Calendar2025 = () => {
     
     const updatedEntry = { ...currentEntry, ...updates };
     
-    // Save to localStorage
+    // Update local state immediately for responsive UI
     setDayEntries(prev => {
       const newEntries = { ...prev, [dateKey]: updatedEntry };
-      localStorage.setItem('trading-calendar-entries', JSON.stringify(newEntries));
+      
+      // Save to API/localStorage via the hook
+      saveCalendarData(newEntries, {
+        onSuccess: () => {
+          toast.success('Entry saved successfully!');
+        },
+        onError: (error) => {
+          toast.error(`Failed to save: ${error.message}`);
+          // Revert local state on error
+          setDayEntries(prev);
+        }
+      });
+      
       return newEntries;
     });
   };
@@ -404,9 +429,18 @@ const Calendar2025 = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-center mb-4">🗓️ Trader Performance + Wellness Calendar 2025</h1>
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <h1 className="text-4xl font-bold text-center">🗓️ Trader Performance + Wellness Calendar 2025</h1>
+          {(isLoading || isSaving) && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
+        </div>
         <p className="text-lg text-muted-foreground text-center max-w-3xl mx-auto">
           Track your daily trading performance, emotional state, and wellness habits in one comprehensive calendar.
+          <br />
+          <span className="text-sm">
+            Data source: {isOnline ? 'Backend API' : 'Local Storage'} 
+            {error && <span className="text-red-500 ml-2">• Error: {error.message}</span>}
+            {isSaving && <span className="text-blue-500 ml-2">• Saving...</span>}
+          </span>
         </p>
       </div>
 
