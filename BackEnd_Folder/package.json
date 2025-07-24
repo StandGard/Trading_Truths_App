@@ -1,0 +1,13 @@
+{
+  "name": "my-awesome-project",
+  "version": "1.0.0",
+  "description": "A professional starter project, well structured and ready to scale.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
